@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>Epsilon Live Ad Test</title>
+
+<style>
+body {
+    font-family: -apple-system, sans-serif;
+    margin: 20px;
+}
+
+.pass {
+    color: green;
+    font-weight: bold;
+}
+
+.fail {
+    color: red;
+    font-weight: bold;
+}
+
+#ad {
+    margin-top: 20px;
+    min-height: 100px;
+    border: 1px solid #ddd;
+    padding: 10px;
+}
+</style>
+</head>
+
+<body>
+
+<h1>Epsilon Live Ad Test</h1>
+
+<p id="status">Loading...</p>
+
+<div id="ad"></div>
+
+<script>
+
+const timeout = setTimeout(() => {
+    document.getElementById("status").innerHTML =
+        '<span class="fail">FAIL - no callback observed after 10 seconds</span>';
+}, 10000);
+
+// common JSONP callback pattern
+window.dotomi_callback = function(payload) {
+
+    clearTimeout(timeout);
+
+    document.getElementById("status").innerHTML =
+        '<span class="pass">SUCCESS - JSONP callback executed</span>';
+
+    document.getElementById("ad").innerHTML =
+        '<pre>' +
+        JSON.stringify(payload, null, 2)
+            .substring(0,3000) +
+        '</pre>';
+};
+
+</script>
+
+<script src="https://iad-usadmm.dotomi.com/fetch/banner/jsonp?rt=1&dtm_server_id=5443&dtmid=327062418101120436&magic=42&utype=3&dvcid=&comId=23402&dtm_user_ip=159.127.103.7&fpc=0&pnid=17100&supplyType=1&trid=5424088224693882227&btcurl=outlook.live.com&pid=17100&mwp=0.410000&msgCampId=40114968&tid=752243501&assigned_creative_id=752243501&ptid=700277802&parentMsgId=40114968&ctrl_ad_id=1&icb=0&ms=21&pubUrl=https%3A%2F%2Foutlook.live.com%2Fbody>
+</html>
+
