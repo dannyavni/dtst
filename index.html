@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
-<title>Safari TTD Test</title>
+<title>Safari Tracking Protection Test</title>
 
 <style>
 body {
@@ -31,10 +31,6 @@ th, td {
     background: #f8d7da;
 }
 
-.pending {
-    background: #fff3cd;
-}
-
 .summary {
     padding: 15px;
     margin-bottom: 20px;
@@ -45,12 +41,6 @@ th, td {
 .small {
     font-size: 12px;
     color: #666;
-}
-
-img.testimg {
-    max-width: 120px;
-    max-height: 60px;
-    border: 1px solid #ccc;
 }
 </style>
 </head>
@@ -93,6 +83,11 @@ const tests = [
 {
     name: "TTD Match Pixel",
     url: "https://match.adsrvr.org/track/cmf/generic?ttd_pid=6szhitj&ttd_tpi=1&gdpr_consent=GDPR_CONSENT"
+},
+
+{
+    name: "Epsilon Match Pixel",
+    url: "https://login.dotomi.com/match/bounce/current?networkId=41440&version=1&nuid=STABLE_USER_TOKEN&gdpr_consent=GDPR_CONSENT"
 }
 
 ];
@@ -134,11 +129,13 @@ function updateSummary(){
 
     document.getElementById("summary").innerHTML = `
         ✅ Pass: ${passCount}<br>
-        ❌ Fail: ${failCount}<br>
-        <br>
-        <b>What matters most:</b><br>
-        If "TTD Match Pixel" fails while Google succeeds,
-        Safari is likely treating adsrvr.org differently.
+        ❌ Fail: ${failCount}<br><br>
+
+        <b>Interpretation:</b><br>
+        If Google and TradeDesk Corporate load successfully,
+        but TTD and/or Epsilon match pixels fail,
+        Safari may be treating identity/match endpoints
+        differently from ordinary third-party content.
     `;
 }
 
@@ -161,8 +158,7 @@ function imageTest(test){
         addResult(
             test.name,
             "PASS",
-            `Loaded in ${Math.round(performance.now() - start)} ms
-            (${img.naturalWidth} × ${img.naturalHeight})`
+            `Loaded in ${Math.round(performance.now() - start)} ms (${img.naturalWidth} × ${img.naturalHeight})`
         );
 
     };
