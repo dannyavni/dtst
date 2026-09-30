@@ -1,0 +1,319 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>Safari Tracker Blocking Test</title>
+
+<style>
+body {
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    margin: 20px;
+    background: #fafafa;
+}
+
+h1 {
+    margin-bottom: 5px;
+}
+
+h2 {
+    margin-top: 30px;
+}
+
+table {
+    border-collapse: collapse;
+    width: 100%;
+    background: white;
+}
+
+th, td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+}
+
+.pass {
+    color: green;
+    font-weight: bold;
+}
+
+.fail {
+    color: red;
+    font-weight: bold;
+}
+
+.pending {
+    color: orange;
+    font-weight: bold;
+}
+
+.small {
+    font-size: 12px;
+    color: #666;
+}
+
+.box {
+    width: 1px;
+    height: 1px;
+    position: absolute;
+    left: -9999px;
+}
+</style>
+
+</head>
+<body>
+
+<h1>Safari Tracking Protection Test</h1>
+
+<p>
+Open this page in:
+</p>
+
+<ul>
+<li>Safari Normal Browsing</li>
+<li>Safari Private Browsing</li>
+<li>Tracking Protection = Private Browsing</li>
+<li>Tracking Protection = All Browsing</li>
+</ul>
+
+<p id="ua"></p>
+
+<table id="results">
+<thead>
+<tr>
+<th>Domain</th>
+<th>Test</th>
+<th>Status</th>
+<th>Detail</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+
+<script>
+
+document.getElementById("ua").innerText =
+navigator.userAgent;
+
+const TESTS = [
+
+{
+    name: "Google Control",
+    url: "https://www.google.com/images/branding/googlelogo/1x/googlelogo_color_272x92dp.png"
+},
+
+{
+    name: "TradeDesk Corporate",
+    url: "https://www.thetradedesk.com/assets/general/_1900xAUTO_fit_center-center_75/man-glasses-desktop.jpg"
+},
+
+{
+    name: "adsrvr.org Root",
+    url: "https://adsrvr.org/"
+}
+
+];
+
+const tbody =
+document.querySelector("#results tbody");
+
+function addRow(domain,test,status,detail) {
+
+    const tr =
+    document.createElement("tr");
+
+    tr.innerHTML = `
+        <td>${domain}</td>
+        <td>${test}</td>
+        <td class="${status.toLowerCase()}">${status}</td>
+        <td>${detail}</td>
+    `;
+
+    tbody.appendChild(tr);
+}
+
+function imageTest(name,url){
+
+    const start = performance.now();
+
+    const img = new Image();
+
+    img.onload = () => {
+
+        addRow(
+            name,
+            "Image",
+            "PASS",
+            Math.round(performance.now()-start) + " ms"
+        );
+    };
+
+    img.onerror = () => {
+
+        addRow(
+            name,
+            "Image",
+            "FAIL",
+            "load error"
+        );
+    };
+
+    img.src =
+        url +
+        (url.includes("?") ? "&" : "?") +
+        "t=" +
+        Date.now();
+}
+
+function cssTest(name,url){
+
+    const div =
+    document.createElement("div");
+
+    div.className = "box";
+
+    document.body.appendChild(div);
+
+    const img = new Image();
+
+    img.onload = () => {
+
+        addRow(
+            name,
+            "CSS Background",
+            "PASS",
+            "background image loaded"
+        );
+    };
+
+    img.onerror = () => {
+
+        addRow(
+            name,
+            "CSS Background",
+            "FAIL",
+            "background blocked"
+        );
+    };
+
+    img.src =
+        url +
+        (url.includes("?") ? "&" : "?") +
+        "css=" +
+        Date.now();
+}
+
+function fetchTest(name,url){
+
+    fetch(
+        url +
+        (url.includes("?") ? "&" : "?") +
+        "fetch=" +
+        Date.now(),
+        {
+            mode: "cors"
+        }
+    )
+    .then(r => {
+
+        addRow(
+            name,
+            "Fetch",
+            "PASS",
+            "status " + r.status
+        );
+    })
+    .catch(err => {
+
+        addRow(
+            name,
+            "Fetch",
+            "FAIL",
+            err.toString()
+        );
+    });
+}
+
+function iframeTest(name,url){
+
+    const frame =
+    document.createElement("iframe");
+
+    frame.style.display = "none";
+
+    frame.onload = () => {
+
+        addRow(
+            name,
+            "Iframe",
+            "PASS",
+            "loaded"
+        );
+    };
+
+    frame.onerror = () => {
+
+        addRow(
+            name,
+            "Iframe",
+            "FAIL",
+            "blocked"
+        );
+    };
+
+    frame.src =
+        url +
+        (url.includes("?") ? "&" : "?") +
+        "iframe=" +
+        Date.now();
+
+    document.body.appendChild(frame);
+
+    setTimeout(() => {
+
+        addRow(
+            name,
+            "Iframe Timeout",
+            "PASS",
+            "no immediate block observed"
+        );
+
+    },5000);
+}
+
+for(const test of TESTS){
+
+    addRow(
+        test.name,
+        "Start",
+        "PENDING",
+        test.url
+    );
+
+    imageTest(
+        test.name,
+        test.url
+    );
+
+    cssTest(
+        test.name,
+        test.url
+    );
+
+    fetchTest(
+        test.name,
+        test.url
+    );
+
+    iframeTest(
+        test.name,
+        test.url
+    );
+}
+
+</script>
+
+</body>
+</html>
+
