@@ -130,9 +130,10 @@ function updateSummary() {
         <b>How to read this</b><br>
         <code>LOADED</code> — request allowed; image body decoded.<br>
         <code>ALLOWED_EMPTY</code> — request reached the network (e.g. Dotomi 302→204);
-        the domain was <em>not</em> list-blocked. Old tests wrongly called this FAIL.<br>
-        <code>HTTP_ERROR</code> — server returned 4xx/5xx.<br>
-        <code>LIKELY_BLOCKED</code> — no usable HTTP status / transfer
+        the domain was <em>not</em> list-blocked. Safari often hides cross-origin
+        HTTP status; redirects/duration in Resource Timing are used instead.<br>
+        <code>HTTP_ERROR</code> — server returned 4xx/5xx (when status is visible).<br>
+        <code>LIKELY_BLOCKED</code> — image error with no completed Resource Timing
         (typical Private Browsing ATF tracker block). Check Web Inspector for
         “Blocked connection to known tracker”.
     `;
@@ -158,12 +159,30 @@ function resourceTimingFor(url) {
     return related.length ? related[related.length - 1] : null;
 }
 
+function networkCompleted(entry) {
+    if (!entry)
+        return false;
+    // Cross-origin entries often zero sizes/status (no Timing-Allow-Origin),
+    // but duration / redirects still prove the request left the device.
+    if (entry.redirectCount > 0)
+        return true;
+    if (entry.duration > 0)
+        return true;
+    if (entry.responseEnd > entry.startTime)
+        return true;
+    return false;
+}
+
 function verdictFrom(imgResult, entry, ms) {
-    const status = entry && typeof entry.responseStatus === "number" ? entry.responseStatus : null;
+    const status = entry && typeof entry.responseStatus === "number" && entry.responseStatus > 0
+        ? entry.responseStatus
+        : null;
     const encoded = entry ? entry.encodedBodySize : null;
     const transfer = entry ? entry.transferSize : null;
+    const redirects = entry ? entry.redirectCount : null;
+    const duration = entry ? Math.round(entry.duration) : null;
     const timing = entry
-        ? `timing status=${status ?? "n/a"}, encoded=${encoded}, transfer=${transfer}, ${ms}ms`
+        ? `timing status=${status ?? "n/a"}, redirects=${redirects}, duration=${duration}ms, encoded=${encoded}, transfer=${transfer}, ${ms}ms`
         : `no resource timing, ${ms}ms`;
 
     if (imgResult.ok && imgResult.w > 0 && imgResult.h > 0) {
@@ -173,7 +192,7 @@ function verdictFrom(imgResult, entry, ms) {
         };
     }
 
-    // 2xx/3xx with no decodable image — request was allowed (Dotomi often ends 204).
+    // Explicit HTTP status when Safari exposes it (same-origin or TAO).
     if (status !== null && status >= 200 && status < 400) {
         return {
             verdict: "ALLOWED_EMPTY",
@@ -188,17 +207,19 @@ function verdictFrom(imgResult, entry, ms) {
         };
     }
 
-    // onerror + missing/zero transfer and no status → strong signal of client-side block.
-    if (!imgResult.ok && (status === null || status === 0) && (transfer === 0 || transfer === null || !entry)) {
+    // Safari cross-origin: status/sizes are usually hidden. If timing shows the
+    // load completed (e.g. Dotomi 302→204), that is ALLOWED_EMPTY — not blocked.
+    if (!imgResult.ok && networkCompleted(entry)) {
         return {
-            verdict: "LIKELY_BLOCKED",
-            detail: `Image error without HTTP body/status — likely content-blocker / ATF. ${timing}`
+            verdict: "ALLOWED_EMPTY",
+            detail: `Image failed to decode but network completed (often HTTP 204 after redirect) — not an ATF domain block. ${timing}`
         };
     }
 
+    // No usable timing → request likely cancelled before the network (ATF / content blocker).
     return {
         verdict: "LIKELY_BLOCKED",
-        detail: `Image error; could not classify further. ${timing}`
+        detail: `Image error with no completed resource timing — likely content-blocker / ATF. ${timing}`
     };
 }
 
