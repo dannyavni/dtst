@@ -1,65 +1,49 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-
 <title>Safari Tracking Protection Test</title>
-
 <style>
 body {
-    font-family: -apple-system,BlinkMacSystemFont,sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
     margin: 20px;
-    max-width: 1000px;
+    max-width: 1100px;
 }
-
 table {
     border-collapse: collapse;
     width: 100%;
 }
-
 th, td {
     border: 1px solid #ddd;
     padding: 8px;
+    vertical-align: top;
 }
-
-.pass {
-    background: #d4edda;
-}
-
-.fail {
-    background: #f8d7da;
-}
-
+.pass { background: #d4edda; }
+.allowed { background: #fff3cd; }
+.fail { background: #f8d7da; }
 .summary {
     padding: 15px;
     margin-bottom: 20px;
     border-radius: 8px;
     background: #f5f5f5;
 }
-
-.small {
-    font-size: 12px;
-    color: #666;
-}
+.small { font-size: 12px; color: #666; }
+code { font-size: 12px; }
 </style>
 </head>
-
 <body>
 
 <h1>Safari Tracking Protection Test</h1>
 
-<div class="summary" id="summary">
-Running tests...
-</div>
-
+<div class="summary" id="summary">Running tests…</div>
 <div id="env"></div>
 
 <table>
 <thead>
 <tr>
 <th>Test</th>
-<th>Status</th>
+<th>Verdict</th>
 <th>Details</th>
 </tr>
 </thead>
@@ -67,123 +51,191 @@ Running tests...
 </table>
 
 <script>
+/**
+ * Distinguishes outcomes that the old Image()-only harness collapsed into FAIL:
+ *   LOADED        – image decoded (pixel or real asset arrived)
+ *   ALLOWED_EMPTY – HTTP completed (e.g. 204 / empty body); domain was NOT network-blocked
+ *   HTTP_ERROR    – 4xx/5xx from the server
+ *   LIKELY_BLOCKED– load failed with no useful HTTP status (typical of Private Browsing ATF list block)
+ *
+ * Known-tracker *network* blocking is on by default in Private Browsing only.
+ * In a normal window you should usually see LOADED or ALLOWED_EMPTY for Dotomi, not LIKELY_BLOCKED.
+ */
 
 const tests = [
-
-{
-    name: "Google Control",
-    url: "https://www.google.com/images/branding/googlelogo/1x/googlelogo_color_272x92dp.png"
-},
-
-{
-    name: "TradeDesk Corporate",
-    url: "https://www.thetradedesk.com/assets/general/_1900xAUTO_fit_center-center_75/man-glasses-desktop.jpg"
-},
-
-{
-    name: "TTD Match Pixel",
-    url: "https://match.adsrvr.org/track/cmf/generic?ttd_pid=6szhitj&ttd_tpi=1&gdpr_consent=GDPR_CONSENT"
-},
-
-{
-    name: "Epsilon Match Pixel",
-    url: "https://login.dotomi.com/match/bounce/current?networkId=41440&version=1&nuid=STABLE_USER_TOKEN&gdpr_consent=GDPR_CONSENT"
-}
-
+    {
+        name: "Google Control",
+        url: "https://www.google.com/images/branding/googlelogo/1x/googlelogo_color_272x92dp.png",
+        kind: "control"
+    },
+    {
+        name: "TradeDesk Corporate",
+        url: "https://www.thetradedesk.com/assets/general/_1900xAUTO_fit_center-center_75/man-glasses-desktop.jpg",
+        kind: "control"
+    },
+    {
+        name: "TTD Match Pixel",
+        url: "https://match.adsrvr.org/track/cmf/generic?ttd_pid=6szhitj&ttd_tpi=1&gdpr_consent=GDPR_CONSENT",
+        kind: "match"
+    },
+    {
+        name: "Epsilon / Dotomi Match",
+        url: "https://login.dotomi.com/match/bounce/current?networkId=41440&version=1&nuid=STABLE_USER_TOKEN&gdpr_consent=GDPR_CONSENT",
+        kind: "match"
+    }
 ];
 
-const results =
-document.getElementById("results");
+const counts = {
+    LOADED: 0,
+    ALLOWED_EMPTY: 0,
+    HTTP_ERROR: 0,
+    LIKELY_BLOCKED: 0
+};
 
-let passCount = 0;
-let failCount = 0;
+const results = document.getElementById("results");
 
-function addResult(name,status,detail){
+document.getElementById("env").innerHTML = `
+<p class="small">${navigator.userAgent}</p>
+<p class="small">
+Compare <b>normal</b> vs <b>Private Browsing</b> windows.
+ATF known-tracker network blocking is default-on in Private Browsing;
+enable “Use advanced tracking and fingerprinting protection” for all browsing to test it in normal windows.
+</p>`;
 
-    const tr =
-    document.createElement("tr");
+function classifyRow(verdict) {
+    if (verdict === "LOADED") return "pass";
+    if (verdict === "ALLOWED_EMPTY") return "allowed";
+    return "fail";
+}
 
-    tr.className =
-        status === "PASS"
-        ? "pass"
-        : "fail";
-
+function addResult(name, verdict, detail) {
+    counts[verdict] = (counts[verdict] || 0) + 1;
+    const tr = document.createElement("tr");
+    tr.className = classifyRow(verdict);
     tr.innerHTML = `
         <td>${name}</td>
-        <td><b>${status}</b></td>
-        <td>${detail}</td>
-    `;
-
+        <td><b>${verdict}</b></td>
+        <td>${detail}</td>`;
     results.appendChild(tr);
-
-    if(status==="PASS"){
-        passCount++;
-    }else{
-        failCount++;
-    }
-
     updateSummary();
 }
 
-function updateSummary(){
-
+function updateSummary() {
     document.getElementById("summary").innerHTML = `
-        ✅ Pass: ${passCount}<br>
-        ❌ Fail: ${failCount}<br><br>
-
-        <b>Interpretation:</b><br>
-        If Google and TradeDesk Corporate load successfully,
-        but TTD and/or Epsilon match pixels fail,
-        Safari may be treating identity/match endpoints
-        differently from ordinary third-party content.
+        <b>Loaded:</b> ${counts.LOADED}
+        &nbsp;|&nbsp; <b>Allowed (empty/non-image):</b> ${counts.ALLOWED_EMPTY}
+        &nbsp;|&nbsp; <b>HTTP error:</b> ${counts.HTTP_ERROR}
+        &nbsp;|&nbsp; <b>Likely blocked:</b> ${counts.LIKELY_BLOCKED}
+        <br><br>
+        <b>How to read this</b><br>
+        <code>LOADED</code> — request allowed; image body decoded.<br>
+        <code>ALLOWED_EMPTY</code> — request reached the network (e.g. Dotomi 302→204);
+        the domain was <em>not</em> list-blocked. Old tests wrongly called this FAIL.<br>
+        <code>HTTP_ERROR</code> — server returned 4xx/5xx.<br>
+        <code>LIKELY_BLOCKED</code> — no usable HTTP status / transfer
+        (typical Private Browsing ATF tracker block). Check Web Inspector for
+        “Blocked connection to known tracker”.
     `;
 }
 
-document.getElementById("env").innerHTML =
-`
-<p class="small">
-${navigator.userAgent}
-</p>
-`;
+function resourceTimingFor(url) {
+    const exact = performance.getEntriesByName(url, "resource");
+    if (exact.length)
+        return exact[exact.length - 1];
 
-function imageTest(test){
+    // Redirect hops may appear under the final URL (e.g. …&DotomiTest=…).
+    const hostPath = (() => {
+        try {
+            const u = new URL(url);
+            return u.origin + u.pathname;
+        } catch {
+            return url;
+        }
+    })();
 
-    const start = performance.now();
-
-    const img =
-    new Image();
-
-    img.onload = function() {
-
-        addResult(
-            test.name,
-            "PASS",
-            `Loaded in ${Math.round(performance.now() - start)} ms (${img.naturalWidth} × ${img.naturalHeight})`
-        );
-
-    };
-
-    img.onerror = function() {
-
-        addResult(
-            test.name,
-            "FAIL",
-            "Image load failed"
-        );
-
-    };
-
-    img.src =
-      test.url +
-      (test.url.includes("?") ? "&" : "?") +
-      "cb=" +
-      Date.now();
+    const related = performance.getEntriesByType("resource")
+        .filter((e) => typeof e.name === "string" && e.name.startsWith(hostPath));
+    return related.length ? related[related.length - 1] : null;
 }
 
-tests.forEach(imageTest);
+function verdictFrom(imgResult, entry, ms) {
+    const status = entry && typeof entry.responseStatus === "number" ? entry.responseStatus : null;
+    const encoded = entry ? entry.encodedBodySize : null;
+    const transfer = entry ? entry.transferSize : null;
+    const timing = entry
+        ? `timing status=${status ?? "n/a"}, encoded=${encoded}, transfer=${transfer}, ${ms}ms`
+        : `no resource timing, ${ms}ms`;
 
+    if (imgResult.ok && imgResult.w > 0 && imgResult.h > 0) {
+        return {
+            verdict: "LOADED",
+            detail: `Decoded ${imgResult.w}×${imgResult.h}; ${timing}`
+        };
+    }
+
+    // 2xx/3xx with no decodable image — request was allowed (Dotomi often ends 204).
+    if (status !== null && status >= 200 && status < 400) {
+        return {
+            verdict: "ALLOWED_EMPTY",
+            detail: `HTTP ${status} with no image body — network allowed, not an ATF domain block. ${timing}`
+        };
+    }
+
+    if (status !== null && status >= 400) {
+        return {
+            verdict: "HTTP_ERROR",
+            detail: `HTTP ${status}. ${timing}`
+        };
+    }
+
+    // onerror + missing/zero transfer and no status → strong signal of client-side block.
+    if (!imgResult.ok && (status === null || status === 0) && (transfer === 0 || transfer === null || !entry)) {
+        return {
+            verdict: "LIKELY_BLOCKED",
+            detail: `Image error without HTTP body/status — likely content-blocker / ATF. ${timing}`
+        };
+    }
+
+    return {
+        verdict: "LIKELY_BLOCKED",
+        detail: `Image error; could not classify further. ${timing}`
+    };
+}
+
+function runTest(test) {
+    const url = test.url + (test.url.includes("?") ? "&" : "?") + "cb=" + Date.now();
+    const start = performance.now();
+
+    return new Promise((resolve) => {
+        const img = new Image();
+        const finish = (imgResult) => {
+            // Resource Timing is populated after the load settles.
+            requestAnimationFrame(() => {
+                setTimeout(() => {
+                    const ms = Math.round(performance.now() - start);
+                    const entry = resourceTimingFor(url);
+                    const { verdict, detail } = verdictFrom(imgResult, entry, ms);
+                    addResult(test.name, verdict, detail);
+                    resolve();
+                }, 50);
+            });
+        };
+
+        img.onload = () => finish({
+            ok: true,
+            w: img.naturalWidth,
+            h: img.naturalHeight
+        });
+        img.onerror = () => finish({ ok: false, w: 0, h: 0 });
+        img.src = url;
+    });
+}
+
+(async () => {
+    for (const test of tests)
+        await runTest(test);
+})();
 </script>
 
 </body>
 </html>
-
