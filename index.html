@@ -73,13 +73,49 @@ const tests = [
         url: "https://www.thetradedesk.com/assets/general/_1900xAUTO_fit_center-center_75/man-glasses-desktop.jpg",
         kind: "control"
     },
+    // --- iOS 27 “8 club” hard-block set (plus Dotomi for comparison) ---
     {
-        name: "TTD Match Pixel",
+        name: "8-club · adsrvr.org (TTD match)",
         url: "https://match.adsrvr.org/track/cmf/generic?ttd_pid=6szhitj&ttd_tpi=1&gdpr_consent=GDPR_CONSENT",
-        kind: "match"
+        kind: "club8"
     },
     {
-        name: "Epsilon / Dotomi Match",
+        name: "8-club · uidapi.com (UID2 SDK JS)",
+        url: "https://cdn.prod.uidapi.com/uid2-sdk-4.0.1.js",
+        kind: "club8"
+    },
+    {
+        name: "8-club · id5-sync.com (sync GIF)",
+        url: "https://id5-sync.com/s/99999/0.gif",
+        kind: "club8"
+    },
+    {
+        name: "8-club · eu-1-id5-sync.com (sync GIF)",
+        url: "https://eu-1-id5-sync.com/s/99999/0.gif",
+        kind: "club8"
+    },
+    {
+        name: "8-club · rlcdn.com (LiveRamp pixel)",
+        url: "https://id.rlcdn.com/1000.gif",
+        kind: "club8"
+    },
+    {
+        name: "8-club · pippio.com (LiveRamp sync)",
+        url: "https://pippio.com/api/sync",
+        kind: "club8"
+    },
+    {
+        name: "8-club · permutive.com (px sync)",
+        url: "https://googlesync.permutive.com/v2.0/px/sync",
+        kind: "club8"
+    },
+    {
+        name: "8-club · ad.gt (Audigent match)",
+        url: "https://ids.ad.gt/api/v1/match",
+        kind: "club8"
+    },
+    {
+        name: "Epsilon / Dotomi Match (not 8-club)",
         url: "https://login.dotomi.com/match/bounce/current?networkId=41440&version=1&nuid=STABLE_USER_TOKEN&gdpr_consent=GDPR_CONSENT",
         kind: "match"
     }
@@ -100,6 +136,12 @@ document.getElementById("env").innerHTML = `
 Compare <b>normal</b> vs <b>Private Browsing</b> windows.
 ATF known-tracker network blocking is default-on in Private Browsing;
 enable “Use advanced tracking and fingerprinting protection” for all browsing to test it in normal windows.
+</p>
+<p class="small">
+Rows marked <code>8-club</code> are the iOS 27 hard-block set reported for ATF
+(adsrvr.org, uidapi.com, id5-sync.com, eu-1-id5-sync.com, rlcdn.com, pippio.com, permutive.com, ad.gt).
+Probe URLs are high-prevalence Tracker Radar resources; some return non-image bodies
+(ALLOWED_EMPTY when allowed, LIKELY_BLOCKED when list-blocked).
 </p>`;
 
 function classifyRow(verdict) {
